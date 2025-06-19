@@ -1,5 +1,6 @@
 from typing import List, Optional
 from datetime import datetime
+from urllib.parse import urlparse
 
 
 ACADEMIC_SOURCES = [
@@ -20,6 +21,22 @@ GK_SOURCES = [
     "stackoverflow.com",  # Programming Q&A"
     "reddit.com",
 ]
+
+
+def get_domain_name(url: str) -> str:
+    """
+    Extracts the domain name from a given URL.
+
+    Parameters:
+    url (str): A full or partial URL.
+
+    Returns:
+    str: The domain name only (e.g., 'bikewale.com').
+    """
+    parsed = urlparse(url)
+    netloc = parsed.netloc or parsed.path  # If no scheme, use path as domain
+    domain = netloc.lstrip("www.")  # Remove 'www.' if present
+    return domain
 
 
 def get_queries(
@@ -45,7 +62,9 @@ def get_queries(
 
     sources = ACADEMIC_SOURCES + GK_SOURCES + NEWS_SOURCES if trusted_sources else []
     if external_sources:
-        sources.extend(external_sources)
+        cleaned_sources = [get_domain_name(src) for src in external_sources]
+
+        sources.extend(cleaned_sources)
     current_date = datetime.now().strftime("%Y-%m-%d")
     for source in sources:
         if sources in NEWS_SOURCES:
@@ -58,7 +77,10 @@ def get_queries(
 
 
 if __name__ == "__main__":
-    custom_sources = ["bikewale.com", "zigwheels.com"]
+    custom_sources = [
+        "bikewale.com",
+        "https://www.zigwheels.com/bike-comparison/",
+    ]
     user_query = "Bullet vs classic 350 which one's better"
     result = get_queries(
         user_query, trusted_sources=False, external_sources=custom_sources

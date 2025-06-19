@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
 
@@ -23,7 +23,9 @@ GK_SOURCES = [
 
 
 def get_queries(
-    query: str, trusted_sources: bool = True, external_sources: List = None
+    query: str,
+    trusted_sources: bool = True,
+    external_sources: Optional[List[str]] = None,
 ) -> List[str]:
     """
     This function takes a query and an optional list of external sources,
@@ -56,6 +58,9 @@ def get_queries(
 
 
 if __name__ == "__main__":
+    custom_sources = ["bikewale.com", "zigwheels.com"]
     user_query = "Bullet vs classic 350 which one's better"
-    result = get_queries(user_query, trusted_sources=False)
+    result = get_queries(
+        user_query, trusted_sources=False, external_sources=custom_sources
+    )
     print(result)

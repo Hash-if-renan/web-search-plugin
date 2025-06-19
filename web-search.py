@@ -22,7 +22,9 @@ GK_SOURCES = [
 ]
 
 
-def get_queries(query: str, external_sources: List = None) -> List[str]:
+def get_queries(
+    query: str, trusted_sources: bool = True, external_sources: List = None
+) -> List[str]:
     """
     This function takes a query and an optional list of external sources,
     and returns a list of queries to be used for web search.
@@ -34,10 +36,14 @@ def get_queries(query: str, external_sources: List = None) -> List[str]:
     Returns:
     list: A list of queries to be used for web search.
     """
-    sources = ACADEMIC_SOURCES + GK_SOURCES + NEWS_SOURCES
+    queries = []
+    if external_sources is None and not trusted_sources:
+        queries.append(query)
+        return queries
+
+    sources = ACADEMIC_SOURCES + GK_SOURCES + NEWS_SOURCES if trusted_sources else []
     if external_sources:
         sources.extend(external_sources)
-    queries = []
     current_date = datetime.now().strftime("%Y-%m-%d")
     for source in sources:
         if sources in NEWS_SOURCES:
@@ -51,5 +57,5 @@ def get_queries(query: str, external_sources: List = None) -> List[str]:
 
 if __name__ == "__main__":
     user_query = "Bullet vs classic 350 which one's better"
-    result = get_queries(user_query)
+    result = get_queries(user_query, trusted_sources=False)
     print(result)

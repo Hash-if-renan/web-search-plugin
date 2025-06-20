@@ -40,9 +40,8 @@ class Search:
         domain = netloc.lstrip("www.")  # Remove 'www.' if present
         return domain
 
-    @classmethod
     def get_queries(
-        cls,
+        self,
         query: str,
         trusted_sources: bool = True,
         external_sources: Optional[List[str]] = None,
@@ -64,17 +63,17 @@ class Search:
             return queries
 
         sources = (
-            cls.ACADEMIC_SOURCES + cls.GK_SOURCES + cls.NEWS_SOURCES
+            self.ACADEMIC_SOURCES + self.GK_SOURCES + self.NEWS_SOURCES
             if trusted_sources
             else []
         )
         if external_sources:
-            cleaned_sources = [cls.get_domain_name(src) for src in external_sources]
+            cleaned_sources = [self.get_domain_name(src) for src in external_sources]
             sources.extend(cleaned_sources)
 
         current_date = datetime.now().strftime("%Y-%m-%d")
         for source in sources:
-            if source in cls.NEWS_SOURCES:
+            if source in self.NEWS_SOURCES:
                 queries.append(f"site:{source} {query} after:{current_date}")
             else:
                 queries.append(f"site:{source} {query}")
@@ -88,7 +87,8 @@ if __name__ == "__main__":
         "https://www.zigwheels.com/bike-comparison/",
     ]
     user_query = "Bullet vs classic 350 which one's better"
-    result = Search.get_queries(
+    search_instance = Search()
+    result = search_instance.get_queries(
         user_query, trusted_sources=False, external_sources=custom_sources
     )
     print(result)

@@ -4,7 +4,6 @@ from crawl4ai.async_dispatcher import MemoryAdaptiveDispatcher, SemaphoreDispatc
 from crawl4ai import RateLimiter, CrawlerMonitor, DisplayMode
 from typing import Dict, List, Optional, Any, Union, Tuple
 import asyncio
-from dataclasses import asdict
 import pprint
 
 
@@ -92,7 +91,6 @@ class Crawl4AIScraper:
         dispatcher: Optional[
             Union[MemoryAdaptiveDispatcher, SemaphoreDispatcher]
         ] = None,
-        stream: bool = False,
         batch_size: int = None,
         check_robots_txt: bool = False,
     ) -> Union[List[Dict[str, Any]], Any]:
@@ -118,19 +116,10 @@ class Crawl4AIScraper:
 
         async with AsyncWebCrawler(config=self.browser_config) as crawler:
             if batch_size:
-                if stream:
-                    return self._process_in_batches_stream(
-                        crawler, urls, run_config, dispatcher, batch_size
-                    )
-                else:
-                    return await self._process_in_batches(
-                        crawler, urls, run_config, dispatcher, batch_size
-                    )
 
-            if stream:
-                pass
-                # return self._stream_results(crawler, urls, run_config, dispatcher)
-
+                return await self._process_in_batches(
+                    crawler, urls, run_config, dispatcher, batch_size
+                )
             results = await crawler.arun_many(
                 urls=urls, config=run_config, dispatcher=dispatcher
             )
@@ -153,22 +142,6 @@ class Crawl4AIScraper:
             monitor=self.monitor,
         )
 
-    # async def _process_in_batches_stream(
-    #     self,
-    #     crawler: AsyncWebCrawler,
-    #     urls: List[str],
-    #     config: CrawlerRunConfig,
-    #     dispatcher: Union[MemoryAdaptiveDispatcher, SemaphoreDispatcher],
-    #     batch_size: int,
-    # ):
-    #     """Stream results in batches."""
-    #     for i in range(0, len(urls), batch_size):
-    #         batch = urls[i : i + batch_size]
-    #         async for result in await crawler.arun_many(
-    #             urls=batch, config=config, dispatcher=dispatcher
-    #         ):
-    #             yield self._format_result(result)
-
     async def _process_in_batches(
         self,
         crawler: AsyncWebCrawler,
@@ -186,24 +159,6 @@ class Crawl4AIScraper:
             )
             all_results.extend([self._format_result(r) for r in batch_results])
         return all_results
-
-    # async def _stream_results(
-    #     self,
-    #     crawler: AsyncWebCrawler,
-    #     urls: List[str],
-    #     config: CrawlerRunConfig,
-    #     dispatcher: Union[MemoryAdaptiveDispatcher, SemaphoreDispatcher],
-    # ) -> Any:
-    #     """Stream results as they become available."""
-    #     config.stream = True
-
-    #     async for result in await crawler.arun_many(
-    #         urls=urls, config=config, dispatcher=dispatcher
-
-    #     ):
-    #         if result.success:
-    #             result = self._format_result(result)
-    #         yield result
 
     def _resolve_config(
         self, config: Optional[Union[CrawlerRunConfig, Dict]]
@@ -243,43 +198,68 @@ class Crawl4AIScraper:
         return formatted
 
 
-# Replace with actual import if needed
+async def test_scrape_many():
+    """Test the scrape_many functionality with and without batching."""
+    # Initialize the scraper
+    scraper = Crawl4AIScraper(
+        max_concurrent=5,  # Limit concurrent requests
+        memory_threshold=80.0,  # Memory threshold for adaptive dispatcher
+    )
+
+    # List of test URLs
+    test_urls = [
+        "https://example.com",
+        "https://www.wikipedia.org",
+        "https://www.python.org",
+        "https://www.github.com",
+        "https://www.stackoverflow.com",
+        "https://news.ycombinator.com",
+        "https://www.reddit.com",
+        "https://www.nytimes.com",
+    ]
+
+    print("=== Testing scrape_many without batching ===")
+    try:
+        results = await scraper.scrape_many(test_urls)
+        print(f"Successfully scraped {len(results)} URLs")
+        pprint.pprint(results[0])  # Print first result for inspection
+    except Exception as e:
+        print(f"Error in non-batched scrape_many: {str(e)}")
+
+    print("\n=== Testing scrape_many with batching (batch_size=3) ===")
+    try:
+        batched_results = await scraper.scrape_many(test_urls, batch_size=3)
+        print(f"Successfully scraped {len(batched_results)} URLs in batches")
+        pprint.pprint(batched_results[0])  # Print first result for inspection
+    except Exception as e:
+        print(f"Error in batched scrape_many: {str(e)}")
+
+    print("\n=== Testing scrape_many with semaphore dispatcher ===")
+    try:
+        # Create a semaphore dispatcher with different settings
+        semaphore_dispatcher = SemaphoreDispatcher(
+            max_session_permit=3,  # Even lower concurrency
+            rate_limiter=RateLimiter(
+                base_delay=(1.0, 2.0), max_delay=30.0, max_retries=2  # Faster retry
+            ),
+            monitor=CrawlerMonitor(),
+        )
+
+        semaphore_results = await scraper.scrape_many(
+            test_urls[:4], dispatcher=semaphore_dispatcher  # Fewer URLs for this test
+        )
+        print(
+            f"Successfully scraped {len(semaphore_results)} URLs with semaphore dispatcher"
+        )
+        pprint.pprint(semaphore_results[0])
+    except Exception as e:
+        print(f"Error in semaphore dispatcher test: {str(e)}")
 
 
-# async def test_internal_stream_results():
-#     # Step 1: Instantiate the crawler
-#     scraper = Crawl4AIScraper()
-
-#     # Step 2: Prepare test inputs
-#     urls = [
-#         "https://en.wikipedia.org/wiki/Royal_Enfield_Bullet",
-#         "https://medium.com/@ashwinsid/one-year-ownership-review-of-royal-enfield-classic-350-5d64f5be31b6",
-#     ]
-
-#     dispatcher = MemoryAdaptiveDispatcher(
-#         memory_threshold_percent=scraper.memory_threshold,
-#         check_interval=scraper.check_interval,
-#         max_session_permit=scraper.max_concurrent,
-#         rate_limiter=scraper.rate_limiter,
-#         monitor=scraper.monitor,
-#     )
-
-#     # Step 3: Run the private method inside the context
-#     print("🌐 Starting crawling session")
-#     async with AsyncWebCrawler(config=scraper.browser_config) as crawler:
-#         print("🔄 Getting stream")
-#         stream = scraper._stream_results(
-#             crawler, urls, scraper.default_run_config, dispatcher
-#         )
-
-#         print("📡 Starting to consume stream")
-#         count = 0
-#         async for result in stream:
-#             count += 1
-#             print("\n--- RESULT {} ---".format(count))
-#             pprint.pprint(result)
-#         print("✅ Test completed")
+async def main():
+    """Run all test cases."""
+    await test_scrape_many()
 
 
-# if __name__ == "__main__":
-#     asyncio.run(test_internal_stream_results())
+if __name__ == "__main__":
+    asyncio.run(main())

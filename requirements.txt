@@ -2,3 +2,5 @@ rank-bm25
 requests
 python-dotenv
 numpy
+crawl4ai
+openai

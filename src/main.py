@@ -40,7 +40,7 @@ async def process_tool_call(tool_call, sources: list, persona: Persona = None) -
 
         # Format the search results into the prompt format
         results_str = f"Search Results for '{query}':\n\n" + "\n\n".join(
-            f"Source: {r['metadata']['url']}\nContent: {r['content']['markdown']['raw'][:2000]}"
+            f"Source: {r['metadata']['url']}\nContent: {r['content']['markdown']['raw']}"
             for r in scraped_data
         )
 

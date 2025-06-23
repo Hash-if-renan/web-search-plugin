@@ -2,6 +2,8 @@ from pathlib import Path
 import logging
 from typing import List, Optional
 from datetime import datetime
+from urllib.parse import urlparse
+
 
 PERSONAS = ["crypto_expert", "finance_expert", "news_monitor", "tech_expert"]
 
@@ -138,14 +140,13 @@ class QueryGenerator:
             + self.NEWS_SOURCES
             + self.GK_SOURCES
             + self.EXCLUDED_SOURCES
-            + self.persona.sources
+            + self.persona.source
             if self.persona
             else []
         )
 
     def get_domain_name(self, url: str) -> str:
         """Extract domain from URL"""
-        from urllib.parse import urlparse
 
         return urlparse(url).netloc.lower()
 

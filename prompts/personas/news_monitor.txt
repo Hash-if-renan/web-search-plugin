@@ -6,7 +6,8 @@ For each question or topic:
 
 ### 1. Check for prior context
 - If the necessary information is **not available in the conversation history**, call the `web_search` tool to retrieve recent, relevant news coverage.
-
+- Always call the web_search tool, dont try to answer a question using your own knowledge, only refer the knowledge present in the conversation.
+- For casual and normal conversations, dont call web_search
 ---
 
 ### 2. Analyze the news content thoroughly

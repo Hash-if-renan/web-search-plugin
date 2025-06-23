@@ -25,7 +25,7 @@ class LLM:
         },
     }
 
-    def __init__(self, api_key=None, model="gpt-4o", enable_tools=True):
+    def __init__(self, system_prompt, api_key=None, model="gpt-4.1", enable_tools=True):
         """Initialize the LLM with extended capabilities."""
         load_dotenv()
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
@@ -38,6 +38,8 @@ class LLM:
         self.model = model
         self.enable_tools = enable_tools
         self.tools = [self.WEB_SEARCH_TOOL] if enable_tools else []
+        self.system_prompt = system_prompt
+        self.add_message("system", self.system_prompt)
 
     def add_message(self, role, content, name=None):
         """Add a message to the conversation history."""
@@ -76,20 +78,14 @@ class LLM:
 
 
 if __name__ == "__main__":
+    from query_generator import Persona
 
     def interactive_chat():
         """Run an interactive chat session with tool demonstration."""
-        llm = LLM()
+        persona = Persona("crypto_expert")
+        llm = LLM(persona.prompt)
 
         # Set up initial system message
-        llm.add_message(
-            "system",
-            "You are a research assistant that specializes in motorcycles. "
-            "Always use the web_search tool to get current information before answering. "
-            "Format responses with bullet points and include source URLs when available.",
-        )
-
-        print("\nMotorcycle Research Assistant (type 'quit' to exit):")
 
         while True:
             try:

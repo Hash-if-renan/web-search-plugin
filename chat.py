@@ -3,29 +3,22 @@ from llm import LLM
 from scrape import Crawl4AIScraper
 import asyncio
 import json
-
-SYSTEM_PROMPT_TEMPLATE = """You are a research assistant that can search the web. For each question:
-1. Perform a fresh web search when needed
-2. Analyze the results
-3. Respond in markdown format with:
-   - Point-by-point answers
-   - Source links for all facts
-   - Clear comparisons when needed
-
-Guidelines:
-- Be concise but thorough
-- Only use information from the provided search results
-- If information is conflicting, note this
-- If no relevant results found, say so"""
+from query_generator import Persona, QueryGenerator, COMMON_SOURCES
 
 
-async def web_search(query: str, custom_sources: list = None) -> list:
+async def web_search(
+    query: str, custom_sources: list = None, persona: Persona = None
+) -> list:
     """Perform web search and return scraped data"""
-    search = Search()
+    query_generator = QueryGenerator(persona)
+    generated_queries = query_generator.get_queries(
+        query, trusted_sources=True, external_sources=custom_sources
+    )
+    main_query_exclusions = persona.sources if persona else COMMON_SOURCES
+    search = Search(main_query_exclusions)
     search_results = search.run_all_searches(
         query,
-        trusted_sources=True,
-        external_sources=custom_sources,
+        generated_queries,
         min_relevance=0.1,
     )
     links = [r["link"] for r in search_results]
@@ -34,14 +27,14 @@ async def web_search(query: str, custom_sources: list = None) -> list:
     return scraped_data
 
 
-async def process_tool_call(llm: LLM, tool_call, sources: list) -> str:
+async def process_tool_call(tool_call, sources: list, persona: Persona = None) -> str:
     """Handle web search tool call and return formatted results"""
     if tool_call.function.name == "web_search":
         args = json.loads(tool_call.function.arguments)
         query = args["query"]
 
         print(f"\n🔍 Performing web search: {query}...")
-        scraped_data = await web_search(query, sources)
+        scraped_data = await web_search(query, sources, persona)
 
         if not scraped_data:
             return "No relevant results found for this query."
@@ -60,14 +53,15 @@ async def process_tool_call(llm: LLM, tool_call, sources: list) -> str:
 
 
 async def chat():
-    llm = LLM(enable_tools=True)
+
+    persona = Persona("finance_expert")
+    llm = LLM(enable_tools=True, system_prompt=persona.prompt)
     sources = [
-        "bikewale.com",
-        "https://www.zigwheels.com/bike-comparison/",
+        # "bikewale.com",
+        # "https://www.zigwheels.com/bike-comparison/",
     ]
 
     # Set up system prompt
-    llm.add_message("system", SYSTEM_PROMPT_TEMPLATE)
 
     print("Research Assistant ready. I'll perform web searches when needed.")
     print("Type 'quit' to exit.\n")
@@ -88,12 +82,13 @@ async def chat():
 
             # Handle tool calls if present
             if hasattr(response, "tool_calls") and response.tool_calls:
+                print("executing function call..")
                 search_results_prompt = ""
                 tool_call = response.tool_calls[
                     0
                 ]  # Assuming single tool call for simplicity
                 # Process each tool call and collect results
-                tool_result = await process_tool_call(llm, tool_call, sources)
+                tool_result = await process_tool_call(tool_call, sources, persona)
                 search_results_prompt += f"\n\n{tool_result}"
 
                 # Create a new prompt combining original query and search results

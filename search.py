@@ -15,38 +15,12 @@ load_dotenv()
 
 
 class Search:
-    ACADEMIC_SOURCES = [
-        "jstor.org",  # Humanities, social sciences, academic
-        "core.ac.uk",  # Open access research papers
-        "dimensions.ai",
-    ]
 
-    NEWS_SOURCES = [
-        "bbc.com",  # International news
-        "theguardian.com",  # Global news and opinion
-        "indiatoday.in",  # Indian news/media
-        "thehindu.com",
-    ]
-
-    GK_SOURCES = [
-        "wikipedia.org",  # General knowledge and reference
-        "medium.com",  # Thought leadership, blogs, commentary"
-        "stackoverflow.com",  # Programming Q&A"
-        "reddit.com",
-    ]
-
-    EXCLUDED_SOURCES = ["youtube.com", "quora.com"]
-
-    def __init__(self):
+    def __init__(self, main_query_exclusions: List[str]):
         self.serper_endpoint = os.getenv("SERPER_ENDPOINT")
         self.serper_api_key = os.getenv("SERPER_API_KEY")
-        self.main_query_exclusions = set(
-            self.ACADEMIC_SOURCES
-            + self.NEWS_SOURCES
-            + self.GK_SOURCES
-            + self.EXCLUDED_SOURCES
-        )
         self.bm25 = None
+        self.main_query_exclusions = main_query_exclusions
 
     @staticmethod
     def get_domain_name(url: str) -> str:
@@ -63,46 +37,6 @@ class Search:
         netloc = parsed.netloc or parsed.path  # If no scheme, use path as domain
         domain = netloc.lstrip("www.")  # Remove 'www.' if present
         return domain
-
-    def get_queries(
-        self,
-        query: str,
-        trusted_sources: bool = True,
-        external_sources: Optional[List[str]] = None,
-    ) -> List[str]:
-        """
-        This function takes a query and an optional list of external sources,
-        and returns a list of queries to be used for web search.
-
-        Parameters:
-        query (str): The main query string.
-        external_sources (list, optional): A list of external sources to include in the search.
-
-        Returns:
-        list: A list of queries to be used for web search.
-        """
-        queries = []
-        if external_sources is None and not trusted_sources:
-            queries.append(query)
-            return queries
-
-        sources = (
-            self.ACADEMIC_SOURCES + self.GK_SOURCES + self.NEWS_SOURCES
-            if trusted_sources
-            else []
-        )
-        if external_sources:
-            cleaned_sources = [self.get_domain_name(src) for src in external_sources]
-            sources.extend(cleaned_sources)
-
-        current_date = datetime.now().strftime("%Y-%m-%d")
-        for source in sources:
-            if source in self.NEWS_SOURCES:
-                queries.append(f"site:{source} {query} after:{current_date}")
-            else:
-                queries.append(f"site:{source} {query}")
-
-        return queries
 
     def _execute_search(
         self, query: str, num_results: int = 5, apply_exclusions: bool = False
@@ -235,8 +169,7 @@ class Search:
     def run_all_searches(
         self,
         main_query: str,
-        trusted_sources: bool = True,
-        external_sources: Optional[List[str]] = None,
+        generated_queries: List[str],
         filter: bool = True,
         min_relevance: float = 0.1,
         max_main_results: int = 5,
@@ -263,11 +196,6 @@ class Search:
             num_results=max_main_results,  # Get extra for filtering
             apply_exclusions=True,
         )
-
-        # Execute generated queries
-        generated_queries = self.get_queries(
-            main_query, trusted_sources, external_sources
-        )
         raw_generated_results = []
 
         with ThreadPoolExecutor(max_workers=5) as executor:
@@ -290,13 +218,9 @@ class Search:
         all_results = raw_main_results + raw_generated_results
 
         if filter:
-            # Apply relevance filtering to ALL results at once
             filtered_results = self._filter_results(
                 all_results, main_query, min_relevance
             )
-
-            # Prioritize main query results (higher diversity) by keeping them first
-            # while still respecting relevance scores
             return filtered_results
         else:
             # Return raw results (main queries first)
@@ -304,22 +228,23 @@ class Search:
 
 
 if __name__ == "__main__":
-    search = Search()
 
-    custom_sources = [
-        "bikewale.com",
-        "https://www.zigwheels.com/bike-comparison/",
-    ]
+    from query_generator import QueryGenerator, Persona
 
-    user_query = "Bullet vs classic 350 which one's better"
+    persona = Persona("crypto_expert")
+    query_gen = QueryGenerator(persona)
+
+    user_query = "latest trends in blockchain technology"
+    queries = query_gen.get_queries(user_query, trusted_sources=True)
+
+    search = Search(main_query_exclusions=persona.source)
+
     results = search.run_all_searches(
         user_query,
-        trusted_sources=True,
-        external_sources=custom_sources,
+        queries,
         min_relevance=0.1,
         # filter=False,
     )
 
-    print("Main Query Results (5):")
     for i, result in enumerate(results):
         print(f"{i}. {result.get('title')} - {result.get('link')}")

@@ -25,6 +25,8 @@ GK_SOURCES = [
     "reddit.com",
 ]
 
+COMMON_SOURCES = ACADEMIC_SOURCES + NEWS_SOURCES + GK_SOURCES
+
 EXCLUDED_SOURCES = ["youtube.com", "quora.com"]
 
 # Persona-specific sources
@@ -118,7 +120,7 @@ class Persona:
 
 
 class QueryGenerator:
-    def __init__(self, persona: Optional["Persona"] = None):
+    def __init__(self, persona: Optional[Persona] = None):
         """
         Initialize the QueryGenerator.
 

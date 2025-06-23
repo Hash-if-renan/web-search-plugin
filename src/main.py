@@ -1,9 +1,9 @@
-from search import Search
-from llm import LLM
-from scrape import Crawl4AIScraper
+from core.search import Search
+from core.llm import LLM
+from core.scrape import Crawl4AIScraper
 import asyncio
 import json
-from query_generator import Persona, QueryGenerator, COMMON_SOURCES
+from core.query_generator import Persona, QueryGenerator
 
 
 async def web_search(
@@ -14,8 +14,7 @@ async def web_search(
     generated_queries = query_generator.get_queries(
         query, trusted_sources=True, external_sources=custom_sources
     )
-    main_query_exclusions = persona.sources if persona else COMMON_SOURCES
-    search = Search(main_query_exclusions)
+    search = Search(query_generator.main_query_exclusions)
     search_results = search.run_all_searches(
         query,
         generated_queries,
@@ -41,7 +40,7 @@ async def process_tool_call(tool_call, sources: list, persona: Persona = None) -
 
         # Format the search results into the prompt format
         results_str = f"Search Results for '{query}':\n\n" + "\n\n".join(
-            f"Source: {r['metadata']['url']}\nContent: {r['content']['markdown']['raw'][:2000]}"
+            f"Source: {r['metadata']['url']}\nContent: {r['content']['markdown']['raw']}"
             for r in scraped_data
         )
 

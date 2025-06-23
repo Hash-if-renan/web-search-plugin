@@ -138,6 +138,9 @@ class QueryGenerator:
             + self.NEWS_SOURCES
             + self.GK_SOURCES
             + self.EXCLUDED_SOURCES
+            + self.persona.sources
+            if self.persona
+            else []
         )
 
     def get_domain_name(self, url: str) -> str:

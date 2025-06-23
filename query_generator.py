@@ -1,5 +1,7 @@
 from pathlib import Path
 import logging
+from typing import List, Optional
+from datetime import datetime
 
 PERSONAS = ["crypto_expert", "finance_expert", "news_monitor", "tech_expert"]
 
@@ -25,21 +27,21 @@ GK_SOURCES = [
 
 EXCLUDED_SOURCES = ["youtube.com", "quora.com"]
 
-
-#
-
 # Persona-specific sources
-CRYPTO_EXPERT_SOURCES = (
-    ACADEMIC_SOURCES
-    + NEWS_SOURCES
-    + ["coindesk.com", "cointelegraph.com", "decrypt.co", "bankless.com"]
-)
+CRYPTO_EXPERT_SOURCES = NEWS_SOURCES + [
+    "coindesk.com",
+    "cointelegraph.com",
+    "decrypt.co",
+    "bankless.com",
+]
 
-FINANCE_EXPERT_SOURCES = (
-    ACADEMIC_SOURCES
-    + NEWS_SOURCES
-    + ["bloomberg.com", "reuters.com", "investopedia.com", "marketwatch.com"]
-)
+FINANCE_EXPERT_SOURCES = [
+    "bloomberg.com",
+    "reuters.com",
+    "investopedia.com",
+    "marketwatch.com",
+]
+
 
 NEWS_MONITOR_SOURCES = NEWS_SOURCES + [
     "apnews.com",
@@ -63,7 +65,7 @@ class Persona:
         "tech_expert": TECH_EXPERT_SOURCES,
     }
 
-    def __init__(self, persona_name, prompt_dir="/prompt/personas"):
+    def __init__(self, persona_name, prompt_dir="./prompts/personas/"):
         """
         Initialize the Persona class for a specific persona.
 
@@ -113,3 +115,88 @@ class Persona:
 
         if sources:
             self.sources[persona_name] = sources
+
+
+class QueryGenerator:
+    def __init__(self, persona: Optional["Persona"] = None):
+        """
+        Initialize the QueryGenerator.
+
+        :param persona: Optional Persona instance to use its sources.
+        """
+        # Fallback default source groups (must be defined elsewhere)
+        self.ACADEMIC_SOURCES = ACADEMIC_SOURCES
+        self.NEWS_SOURCES = NEWS_SOURCES
+        self.GK_SOURCES = GK_SOURCES
+        self.EXCLUDED_SOURCES = EXCLUDED_SOURCES
+
+        self.persona = persona
+        self.main_query_exclusions = set(
+            self.ACADEMIC_SOURCES
+            + self.NEWS_SOURCES
+            + self.GK_SOURCES
+            + self.EXCLUDED_SOURCES
+        )
+
+    def get_domain_name(self, url: str) -> str:
+        """Extract domain from URL"""
+        from urllib.parse import urlparse
+
+        return urlparse(url).netloc.lower()
+
+    def get_queries(
+        self,
+        query: str,
+        trusted_sources: bool = True,
+        external_sources: Optional[List[str]] = None,
+    ) -> List[str]:
+        """
+        Generate a list of web search queries based on the input parameters.
+
+        :param query: The query string to search.
+        :param trusted_sources: Whether to include default trusted sources.
+        :param external_sources: List of extra domains to include in search.
+        :return: List of query strings.
+        """
+        queries = []
+        if external_sources is None and not trusted_sources and not self.persona:
+            return [query]
+
+        # Use persona's sources if available, else fallback to trusted/default ones
+        if self.persona:
+            sources = self.persona.source
+        elif trusted_sources:
+            sources = self.ACADEMIC_SOURCES + self.GK_SOURCES + self.NEWS_SOURCES
+        else:
+            sources = []
+
+        # Add cleaned external sources if provided
+        if external_sources:
+            cleaned = [self.get_domain_name(src) for src in external_sources]
+            sources.extend(cleaned)
+
+        current_date = datetime.now().strftime("%Y-%m-%d")
+
+        for source in sources:
+            if source in self.NEWS_SOURCES:
+                queries.append(f"site:{source} {query} after:{current_date}")
+            else:
+                queries.append(f"site:{source} {query}")
+
+        return queries
+
+
+if __name__ == "__main__":
+    # Example usage
+    persona = Persona("crypto_expert")
+    query_gen = QueryGenerator(persona)
+
+    query = "latest trends in blockchain technology"
+    queries = query_gen.get_queries(query, trusted_sources=True)
+
+    print("Generated Queries:")
+    for q in queries:
+        print(q)
+
+    print("\nPersona Prompt:")
+    print(persona.prompt)

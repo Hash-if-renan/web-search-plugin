@@ -5,3 +5,6 @@ numpy
 crawl4ai
 openai
 streamlit
+langchain
+ragas
+datasets

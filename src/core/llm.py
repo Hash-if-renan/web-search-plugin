@@ -48,7 +48,29 @@ class LLM:
             message["name"] = name
         self.conversation_history.append(message)
 
-    def run(self, message=None, stream=False, tool_choice="auto"):
+    def run_with_streaming(self, message=None, tool_choice="auto"):
+        """Stream a response from the LLM"""
+        if message:
+            self.add_message("user", message)
+
+        kwargs = {
+            "model": self.model,
+            "messages": self.conversation_history,
+            "stream": True,
+        }
+
+        if self.enable_tools:
+            kwargs["tools"] = self.tools
+            kwargs["tool_choice"] = tool_choice
+
+        try:
+            stream = self.client.chat.completions.create(**kwargs)
+            return stream  # returns generator
+        except Exception as e:
+            print(f"Streaming error: {e}")
+            raise
+
+    def run_without_streaming(self, message=None, tool_choice="auto"):
         """Get a response from the LLM with optional tool usage.
         Returns the raw assistant message without modifying history."""
         if message:
@@ -72,9 +94,18 @@ class LLM:
             print(f"Error during API call: {e}")
             raise
 
-    def reset_conversation(self):
+    def run(self, message=None, stream=False, tool_choice="auto"):
+        """Get a response from the LLM with optional tool usage.
+        Returns the raw assistant message without modifying history."""
+        if stream:
+            return self.run_with_streaming(message, tool_choice)
+        else:
+            return self.run_without_streaming(message, tool_choice)
+
+    def reset_history(self):
         """Reset the conversation history."""
         self.conversation_history = []
+        self.add_message("system", self.system_prompt)
 
 
 if __name__ == "__main__":

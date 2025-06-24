@@ -7,7 +7,9 @@ from core.query_generator import Persona, QueryGenerator
 
 
 async def web_search(
-    query: str, custom_sources: list = None, persona: Persona = None
+    query: str,
+    persona: Persona,
+    custom_sources: list = None,
 ) -> list:
     """Perform web search and return scraped data"""
     query_generator = QueryGenerator(persona)
@@ -26,14 +28,14 @@ async def web_search(
     return scraped_data
 
 
-async def process_tool_call(tool_call, sources: list, persona: Persona = None) -> str:
+async def process_tool_call(tool_call, sources: list, persona: Persona) -> str:
     """Handle web search tool call and return formatted results"""
     if tool_call.function.name == "web_search":
         args = json.loads(tool_call.function.arguments)
         query = args["query"]
 
         print(f"\n🔍 Performing web search: {query}...")
-        scraped_data = await web_search(query, sources, persona)
+        scraped_data = await web_search(query, persona, sources)
 
         if not scraped_data:
             return "No relevant results found for this query."

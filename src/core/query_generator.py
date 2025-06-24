@@ -5,7 +5,7 @@ from datetime import datetime
 from urllib.parse import urlparse
 
 
-PERSONAS = ["crypto_expert", "finance_expert", "news_monitor", "tech_expert"]
+PERSONAS = ["default", "crypto_expert", "finance_expert", "news_monitor", "tech_expert"]
 
 ACADEMIC_SOURCES = [
     "jstor.org",  # Humanities, social sciences, academic
@@ -63,6 +63,7 @@ TECH_EXPERT_SOURCES = (
 
 class Persona:
     DEFAULT_SOURCES = {
+        "default": COMMON_SOURCES,
         "crypto_expert": CRYPTO_EXPERT_SOURCES,
         "finance_expert": FINANCE_EXPERT_SOURCES,
         "news_monitor": NEWS_MONITOR_SOURCES,
@@ -76,16 +77,15 @@ class Persona:
         :param persona_name: The name of the persona to load
         :param prompt_dir: Directory containing text files for each persona's prompt
         """
-        self.prompt_dir = Path(prompt_dir)
-        self.prompt_dir.mkdir(parents=True, exist_ok=True)
-
-        self.persona_name = persona_name
-        self.personas = PERSONAS  # Should be a list like ["crypto_expert", ...]
-
+        self.personas = PERSONAS
         if persona_name not in self.personas:
             raise ValueError(
                 f"Persona '{persona_name}' not found in allowed personas: {self.personas}"
             )
+        self.prompt_dir = Path(prompt_dir)
+        self.prompt_dir.mkdir(parents=True, exist_ok=True)
+
+        self.persona_name = persona_name
 
         self.sources = self.DEFAULT_SOURCES
         self.source = self._get_source()
@@ -122,7 +122,7 @@ class Persona:
 
 
 class QueryGenerator:
-    def __init__(self, persona: Optional[Persona] = None):
+    def __init__(self, persona: Persona):
         """
         Initialize the QueryGenerator.
 
@@ -135,15 +135,7 @@ class QueryGenerator:
         self.EXCLUDED_SOURCES = EXCLUDED_SOURCES
 
         self.persona = persona
-        self.main_query_exclusions = set(
-            self.ACADEMIC_SOURCES
-            + self.NEWS_SOURCES
-            + self.GK_SOURCES
-            + self.EXCLUDED_SOURCES
-            + self.persona.source
-            if self.persona
-            else []
-        )
+        self.main_query_exclusions = self.EXCLUDED_SOURCES + self.persona.source
 
     def get_domain_name(self, url: str) -> str:
         """Extract domain from URL"""
@@ -169,7 +161,7 @@ class QueryGenerator:
             return [query]
 
         # Use persona's sources if available, else fallback to trusted/default ones
-        if self.persona:
+        if self.persona.persona_name != "default":
             sources = self.persona.source
         elif trusted_sources:
             sources = self.ACADEMIC_SOURCES + self.GK_SOURCES + self.NEWS_SOURCES

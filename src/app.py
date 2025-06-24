@@ -101,9 +101,15 @@ st.set_page_config(page_title="AI Research Assistant", layout="wide")
 st.title("🧠 AI Research Assistant")
 
 query = st.text_input("Enter your question:")
+custom_sources_input = st.text_area(
+    "Optional: Enter custom sources (comma-separated, e.g., marketwatch.com, bloomberg.com)",
+    value="",
+    height=100,
+)
+custom_sources = [s.strip() for s in custom_sources_input.split(",") if s.strip()]
 persona_name = st.selectbox(
     "Choose a persona",
-    ["finance_expert", "crypto_expert", "tech_expert", "news_monitor"],
+    ["default", "finance_expert", "crypto_expert", "tech_expert", "news_monitor"],
 )
 
 if st.button("Ask"):

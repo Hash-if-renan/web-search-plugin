@@ -68,16 +68,21 @@ async def handle_query(
     if not user_input:
         return "Please enter a query."
 
-    persona = Persona(persona_name)
-    llm = LLM(enable_tools=True, system_prompt=persona.prompt)
-    response = llm.run(user_input)
+    # Initialize or retrieve LLM instance
+    if "llm" not in st.session_state or st.session_state.persona_name != persona_name:
+        persona = Persona(persona_name)
+        st.session_state.llm = LLM(enable_tools=True, system_prompt=persona.prompt)
+        st.session_state.persona_name = persona_name
 
+    llm = st.session_state.llm
+
+    response = llm.run(user_input)
     scraped_data = []
 
     if hasattr(response, "tool_calls") and response.tool_calls:
         tool_call = response.tool_calls[0]
         scraped_data = await process_tool_call(
-            query, tool_call, sources, persona, ui_containers
+            user_input, tool_call, sources, Persona(persona_name), ui_containers
         )
 
         combined_prompt = (
@@ -107,14 +112,22 @@ custom_sources_input = st.text_area(
     height=100,
 )
 custom_sources = [s.strip() for s in custom_sources_input.split(",") if s.strip()]
+
 persona_name = st.selectbox(
     "Choose a persona",
     ["default", "finance_expert", "crypto_expert", "tech_expert", "news_monitor"],
 )
 
+# 🔘 Clear conversation history
+if st.button("🧹 Clear History"):
+    if "llm" in st.session_state:
+        st.session_state.llm.reset_conversation()
+        st.success("Conversation history cleared.")
+
+# 🚀 Ask button
 if st.button("Ask"):
     if query:
-        # Create empty containers for step-by-step display
+        # Create UI containers for displaying steps
         generated_queries_container = st.empty()
         search_links_container = st.empty()
         scraped_data_container = st.empty()
@@ -128,7 +141,7 @@ if st.button("Ask"):
             }
 
             answer = asyncio.run(
-                handle_query(query, persona_name, ui_containers=ui_containers)
+                handle_query(query, persona_name, custom_sources, ui_containers)
             )
 
             with answer_container:

@@ -33,6 +33,10 @@ For each question or topic:
 
 ---
 
+### 4. Generate **3–5 related follow-up queries**:
+- Suggest relevant questions the user might explore next
+- These should help deepen understanding, cover other angles, or explore implications of the topic
+
 ### Guidelines
 - Be **concise**, but provide **context-rich summaries**
 - Only use information available in the search results or conversation context

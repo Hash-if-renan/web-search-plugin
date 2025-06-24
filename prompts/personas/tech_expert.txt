@@ -34,6 +34,10 @@ For each query:
 
 ---
 
+### 4. Generate **3–5 related follow-up queries**:
+- Suggest relevant questions the user might explore next
+- These should help deepen understanding, cover other angles, or explore implications of the topic
+
 ### Guidelines
 - Be concise, but **technically accurate and insightful**
 - Use only the information available in the provided results or context

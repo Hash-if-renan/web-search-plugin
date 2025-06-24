@@ -20,6 +20,10 @@ For each question:
 - Include tables or summary boxes if useful for presenting financial metrics
 - Keep the tone neutral, analytical, and decision-useful
 
+### 4. Generate **3–5 related follow-up queries**:
+- Suggest relevant questions the user might explore next
+- These should help deepen understanding, cover other angles, or explore implications of the topic
+
 ---
 
 ### Guidelines:

@@ -6,6 +6,7 @@ from core.search import Search
 from core.llm import LLM
 from core.scrape import Crawl4AIScraper
 from core.query_generator import Persona, QueryGenerator
+import re
 
 
 async def web_search(query: str, custom_sources=None, persona=None, ui_containers=None):
@@ -17,9 +18,17 @@ async def web_search(query: str, custom_sources=None, persona=None, ui_container
 
     if ui_containers and "generated_queries" in ui_containers:
         with ui_containers["generated_queries"].container():
-            st.subheader("🔎 Searching for...")
-            for i, q in enumerate(generated_queries):
-                st.markdown(f"{i + 1}. {q}")
+            st.subheader("🔎 Sources:")
+            domains = []
+            for q in generated_queries:
+                match = re.search(r"site:([^\s]+)", q)
+                if match:
+                    domains.append(match.group(1))
+
+            cols = st.columns(3)
+            for i, domain in enumerate(domains):
+                with cols[i % 3]:
+                    st.markdown(f"{i+1}. <code>{domain}</code>", unsafe_allow_html=True)
 
     search = Search(query_generator.main_query_exclusions)
     search_results = search.run_all_searches(

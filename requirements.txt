@@ -4,3 +4,4 @@ python-dotenv
 numpy
 crawl4ai
 openai
+streamlit

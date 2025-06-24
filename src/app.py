@@ -7,6 +7,7 @@ from core.llm import LLM
 from core.scrape import Crawl4AIScraper
 from core.query_generator import Persona, QueryGenerator
 import re
+import asyncio
 
 
 async def web_search(query: str, custom_sources=None, persona=None, ui_containers=None):
@@ -16,6 +17,8 @@ async def web_search(query: str, custom_sources=None, persona=None, ui_container
         query, trusted_sources=True, external_sources=custom_sources
     )
 
+    print("Generated Queries:", generated_queries)
+
     if ui_containers and "generated_queries" in ui_containers:
         with ui_containers["generated_queries"].container():
             st.subheader("🔎 Sources:")
@@ -24,7 +27,7 @@ async def web_search(query: str, custom_sources=None, persona=None, ui_container
                 match = re.search(r"site:([^\s]+)", q)
                 if match:
                     domains.append(match.group(1))
-
+            print("Domains found:", domains)
             cols = st.columns(3)
             for i, domain in enumerate(domains):
                 with cols[i % 3]:
@@ -34,7 +37,7 @@ async def web_search(query: str, custom_sources=None, persona=None, ui_container
     search_results = search.run_all_searches(
         query, generated_queries, min_relevance=0.1
     )
-    links = [r["link"] for r in search_results][:5]
+    links = [r["link"] for r in search_results]
 
     if ui_containers and "search_links" in ui_containers:
         with ui_containers["search_links"].container():
@@ -73,11 +76,9 @@ async def process_tool_call(
 async def handle_query(
     user_input, persona_name="finance_expert", sources=None, ui_containers=None
 ):
-    """Run the main assistant logic asynchronously"""
     if not user_input:
         return "Please enter a query."
 
-    # Initialize or retrieve LLM instance
     if "llm" not in st.session_state or st.session_state.persona_name != persona_name:
         persona = Persona(persona_name)
         st.session_state.llm = LLM(enable_tools=True, system_prompt=persona.prompt)
@@ -85,13 +86,33 @@ async def handle_query(
 
     llm = st.session_state.llm
 
-    response = llm.run(user_input)
-    scraped_data = []
+    stream = llm.run(user_input, stream=True)
+    collected_response = ""
+    final_tool_calls = {}
 
-    if hasattr(response, "tool_calls") and response.tool_calls:
-        tool_call = response.tool_calls[0]
+    answer_placeholder = ui_containers.get("answer", st.empty())
+    with answer_placeholder:
+        for chunk in stream:
+            delta = chunk.choices[0].delta
+
+            if delta.tool_calls:
+                for tool_call in delta.tool_calls:
+                    index = tool_call.index
+                    if index not in final_tool_calls:
+                        final_tool_calls[index] = tool_call
+                    else:
+                        final_tool_calls[
+                            index
+                        ].function.arguments += tool_call.function.arguments
+
+            elif delta.content:
+                collected_response += delta.content
+                answer_placeholder.markdown(collected_response)
+
+    if final_tool_calls:
+        first_call = list(final_tool_calls.values())[0]
         scraped_data = await process_tool_call(
-            user_input, tool_call, sources, Persona(persona_name), ui_containers
+            user_input, first_call, sources, Persona(persona_name), ui_containers
         )
 
         combined_prompt = (
@@ -103,58 +124,69 @@ async def handle_query(
             + "\n\nPlease analyze these results and answer the query."
         )
         llm.add_message("system", combined_prompt)
-        response = llm.run()
 
-    final_answer = response.content
-    llm.add_message("assistant", final_answer)
-    return final_answer
+        stream2 = llm.run(stream=True)
+        final_response = ""
+        with answer_placeholder:
+            for chunk in stream2:
+                delta = chunk.choices[0].delta
+                content = delta.content
+                final_response += content if content else ""
+                answer_placeholder.markdown(final_response)
+
+        llm.add_message("assistant", final_response)
+        return final_response
+
+    llm.add_message("assistant", collected_response)
+    return collected_response
 
 
-# ---------- Streamlit UI ----------
-st.set_page_config(page_title="AI Research Assistant", layout="wide")
-st.title("🧠 AI Research Assistant")
+def app():
+    st.set_page_config(page_title="AI Research Assistant", layout="wide")
+    st.title("🧠 AI Research Assistant")
 
-query = st.text_input("Enter your question:")
-custom_sources_input = st.text_area(
-    "Optional: Enter custom sources (comma-separated, e.g., marketwatch.com, bloomberg.com)",
-    value="",
-    height=100,
-)
-custom_sources = [s.strip() for s in custom_sources_input.split(",") if s.strip()]
+    query = st.text_input("Enter your question:")
+    custom_sources_input = st.text_area(
+        "Optional: Enter custom sources (comma-separated, e.g., marketwatch.com, bloomberg.com)",
+        value="",
+        height=100,
+    )
+    custom_sources = [s.strip() for s in custom_sources_input.split(",") if s.strip()]
 
-persona_name = st.selectbox(
-    "Choose a persona",
-    ["default", "finance_expert", "crypto_expert", "tech_expert", "news_monitor"],
-)
+    persona_name = st.selectbox(
+        "Choose a persona",
+        ["default", "finance_expert", "crypto_expert", "tech_expert", "news_monitor"],
+    )
 
-# 🔘 Clear conversation history
-if st.button("🧹 Clear History"):
-    if "llm" in st.session_state:
-        st.session_state.llm.reset_conversation()
-        st.success("Conversation history cleared.")
+    # 🔘 Clear conversation history
+    if st.button("🧹 Clear History"):
+        if "llm" in st.session_state:
+            st.session_state.llm.reset_history()
+            st.success("Conversation history cleared.")
 
-# 🚀 Ask button
-if st.button("Ask"):
-    if query:
-        # Create UI containers for displaying steps
-        generated_queries_container = st.empty()
-        search_links_container = st.empty()
-        scraped_data_container = st.empty()
-        answer_container = st.empty()
+    # 🚀 Ask button
+    if st.button("Ask"):
+        if query:
+            # Create UI containers for displaying steps
+            generated_queries_container = st.empty()
+            search_links_container = st.empty()
+            scraped_data_container = st.empty()
+            answer_container = st.empty()
 
-        with st.spinner("Thinking..."):
             ui_containers = {
                 "generated_queries": generated_queries_container,
                 "search_links": search_links_container,
                 "scraped_data": scraped_data_container,
+                "answer": answer_container,
             }
 
-            answer = asyncio.run(
-                handle_query(query, persona_name, custom_sources, ui_containers)
-            )
+            with st.spinner("Thinking..."):
+                asyncio.run(
+                    handle_query(query, persona_name, custom_sources, ui_containers)
+                )
+        else:
+            st.warning("Please enter a question.")
 
-            with answer_container:
-                st.subheader("🤖 Assistant Answer")
-                st.markdown(answer)
-    else:
-        st.warning("Please enter a question.")
+
+if __name__ == "__main__":
+    app()

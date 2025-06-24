@@ -102,6 +102,11 @@ class LLM:
         else:
             return self.run_without_streaming(message, tool_choice)
 
+    def reset_history(self):
+        """Reset the conversation history."""
+        self.conversation_history = []
+        self.add_message("system", self.system_prompt)
+
 
 if __name__ == "__main__":
     from query_generator import Persona

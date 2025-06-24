@@ -4,6 +4,7 @@ from core.scrape import Crawl4AIScraper
 import asyncio
 import json
 from core.query_generator import Persona, QueryGenerator
+from core.evaluate import Evaluator
 
 
 async def web_search(
@@ -62,9 +63,6 @@ async def chat():
         # "https://www.zigwheels.com/bike-comparison/",
     ]
 
-    # Set up system prompt
-
-    print("Research Assistant ready. I'll perform web searches when needed.")
     print("Type 'quit' to exit.\n")
 
     while True:

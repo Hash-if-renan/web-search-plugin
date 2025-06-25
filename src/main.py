@@ -4,6 +4,7 @@ from core.scrape import Crawl4AIScraper
 import asyncio
 import json
 from core.query_generator import Persona, QueryGenerator
+
 from core.evaluate import Evaluator
 
 
@@ -58,6 +59,7 @@ async def chat():
 
     persona = Persona("finance_expert")
     llm = LLM(enable_tools=True, system_prompt=persona.prompt)
+    evaluator = Evaluator()
     sources = [
         # "bikewale.com",
         # "https://www.zigwheels.com/bike-comparison/",
@@ -78,7 +80,7 @@ async def chat():
 
             # Get initial response (may include tool calls)
             response = llm.run(user_input)
-
+            kwargs = {}
             # Handle tool calls if present
             if hasattr(response, "tool_calls") and response.tool_calls:
                 print("executing function call..")
@@ -89,7 +91,6 @@ async def chat():
                 # Process each tool call and collect results
                 tool_result = await process_tool_call(tool_call, sources, persona)
                 search_results_prompt += f"\n\n{tool_result}"
-
                 # Create a new prompt combining original query and search results
                 combined_prompt = f"Original Query: {user_input}\n\n{search_results_prompt}\n\nPlease analyze these results and answer the query."
                 llm.add_message("system", combined_prompt)
@@ -98,11 +99,20 @@ async def chat():
 
                 # Get final response using the combined prompt
                 response = llm.run()
+                kwargs = {
+                    "inputs": user_input,
+                    "prediction": response.content,
+                    "contexts": search_results_prompt,
+                }
 
             # Add assistant response to history and print it
             llm.add_message("assistant", response.content)
             print("\nAssistant:")
             print(response.content)
+            if kwargs:
+                print("\n output evaluation")
+                eval_results = await evaluator.evaluate(**kwargs)
+                print("evaluation results:\n", eval_results)
 
         except KeyboardInterrupt:
             print("\nGoodbye!")
